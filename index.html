@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planificador Familiar</title>
+
+<!-- Firebase (SDK compat, no módulos) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+<style>
+  :root{
+    --hilario:#2563eb;
+    --helena:#db2777;
+    --ana:#16a34a;
+    --marcos:#ea580c;
+    --bg:#f4f5f7;
+    --card:#ffffff;
+    --border:#e2e5ea;
+    --text:#1f2430;
+    --muted:#6b7280;
+    --radius:14px;
+    --shadow:0 2px 10px rgba(20,20,40,0.06), 0 1px 2px rgba(20,20,40,0.04);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  header.top{
+    background:linear-gradient(135deg,#1e293b,#334155);
+    color:#fff;
+    padding:20px 24px 16px;
+  }
+  header.top h1{
+    margin:0 0 4px;
+    font-size:1.5rem;
+    font-weight:700;
+    letter-spacing:-0.02em;
+  }
+  header.top p{
+    margin:0;
+    font-size:.85rem;
+    color:#cbd5e1;
+  }
+  .legend{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-top:12px;
+  }
+  .legend span{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:.78rem;
+    color:#e2e8f0;
+  }
+  .dot{
+    width:10px;height:10px;border-radius:50%;display:inline-block;
+  }
+
+  .toolbar{
+    max-width:1400px;
+    margin:0 auto;
+    padding:16px 20px 0;
+  }
+  .tabs{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    background:var(--card);
+    padding:6px;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    width:fit-content;
+    margin-bottom:14px;
+  }
+  .tab-btn{
+    border:none;
+    background:transparent;
+    padding:8px 16px;
+    border-radius:9px;
+    font-size:.85rem;
+    font-weight:600;
+    cursor:pointer;
+    color:var(--muted);
+    transition:.15s;
+  }
+  .tab-btn.active{
+    color:#fff;
+  }
+  .tab-btn[data-tab="conjunta"].active{ background:#334155; }
+  .tab-btn[data-tab="Hilario"].active{ background:var(--hilario); }
+  .tab-btn[data-tab="Helena"].active{ background:var(--helena); }
+  .tab-btn[data-tab="Ana"].active{ background:var(--ana); }
+  .tab-btn[data-tab="Marcos"].active{ background:var(--marcos); }
+
+  .week-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--card);
+    padding:10px 16px;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .week-nav .range{
+    font-weight:700;
+    font-size:.95rem;
+    text-transform:capitalize;
+  }
+  .week-nav .muted-note{
+    font-size:.75rem;
+    color:var(--muted);
+  }
+  .nav-buttons{ display:flex; gap:6px; }
+  .nav-buttons button, .today-btn{
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:8px;
+    padding:6px 12px;
+    cursor:pointer;
+    font-size:.85rem;
+    font-weight:600;
+    color:var(--text);
+  }
+  .nav-buttons button:hover, .today-btn:hover{ background:#f1f3f6; }
+
+  .calendar-wrap{
+    max-width:1400px;
+    margin:0 auto;
+    padding:0 20px 100px;
+    overflow-x:auto;
+  }
+  .calendar{
+    display:grid;
+    grid-template-columns:56px repeat(7, minmax(130px,1fr));
+    background:var(--card);
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    min-width:1000px;
+  }
+  .head-cell{
+    padding:10px 6px;
+    text-align:center;
+    border-bottom:1px solid var(--border);
+    border-left:1px solid var(--border);
+    background:#fafbfc;
+    position:sticky;
+    top:0;
+  }
+  .head-cell.corner{ border-left:none; background:#fafbfc; }
+  .head-cell .dow{ font-size:.72rem; text-transform:uppercase; color:var(--muted); font-weight:700; letter-spacing:.03em; }
+  .head-cell .dnum{ font-size:1.15rem; font-weight:700; margin-top:2px; }
+  .head-cell.today .dnum{ color:#2563eb; }
+  .head-cell.no-lectivo{ background:#fff1f0; }
+  .head-cell .festivo-tag{
+    font-size:.62rem;
+    color:#b91c1c;
+    font-weight:700;
+    margin-top:2px;
+    line-height:1.1;
+  }
+
+  .hour-col{
+    border-left:1px solid var(--border);
+  }
+  .hour-label{
+    height:52px;
+    font-size:.68rem;
+    color:var(--muted);
+    text-align:right;
+    padding-right:6px;
+    border-bottom:1px solid #f0f1f4;
+    box-sizing:border-box;
+    padding-top:2px;
+  }
+  .day-col{
+    position:relative;
+    border-left:1px solid var(--border);
+  }
+  .day-col.no-lectivo{ background:#fffaf9; }
+  .hour-line{
+    height:52px;
+    border-bottom:1px solid #f0f1f4;
+    box-sizing:border-box;
+  }
+  .lane-layer{
+    position:absolute;
+    top:0; left:0; right:0; bottom:0;
+    display:flex;
+  }
+  .lane{
+    position:relative;
+    flex:1;
+    border-left:1px dashed #f4f4f6;
+  }
+  .lane:first-child{ border-left:none; }
+
+  .event-block{
+    position:absolute;
+    left:2px; right:2px;
+    border-radius:7px;
+    padding:3px 6px;
+    color:#fff;
+    font-size:.68rem;
+    line-height:1.25;
+    overflow:hidden;
+    cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,0.18);
+    z-index:2;
+  }
+  .event-block b{ display:block; font-size:.72rem; }
+  .event-block .hora{ opacity:.9; font-size:.62rem; }
+
+  .fab{
+    position:fixed;
+    bottom:24px; right:24px;
+    background:#1e293b;
+    color:#fff;
+    border:none;
+    border-radius:30px;
+    padding:14px 22px;
+    font-size:.9rem;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,0.25);
+    z-index:50;
+  }
+  .fab:hover{ background:#0f172a; }
+
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(15,20,30,0.5);
+    display:flex; align-items:center; justify-content:center;
+    z-index:100;
+    padding:16px;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal{
+    background:#fff;
+    border-radius:16px;
+    width:100%;
+    max-width:440px;
+    max-height:90vh;
+    overflow-y:auto;
+    padding:22px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal h2{ margin:0 0 4px; font-size:1.15rem; }
+  .modal .sub{ margin:0 0 16px; font-size:.8rem; color:var(--muted); }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:.78rem; font-weight:700; margin-bottom:5px; color:#374151; }
+  .field input[type=text], .field input[type=date], .field input[type=time], .field select, .field textarea{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-size:.88rem;
+    font-family:inherit;
+  }
+  .field textarea{ resize:vertical; min-height:50px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 .field{ flex:1; }
+  .member-pick{ display:flex; gap:6px; flex-wrap:wrap; }
+  .member-pick button{
+    border:2px solid var(--border);
+    background:#fff;
+    border-radius:8px;
+    padding:7px 12px;
+    font-size:.8rem;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--muted);
+  }
+  .member-pick button.sel-Hilario.active{ border-color:var(--hilario); color:var(--hilario); background:#eff6ff; }
+  .member-pick button.sel-Helena.active{ border-color:var(--helena); color:var(--helena); background:#fdf2f8; }
+  .member-pick button.sel-Ana.active{ border-color:var(--ana); color:var(--ana); background:#f0fdf4; }
+  .member-pick button.sel-Marcos.active{ border-color:var(--marcos); color:var(--marcos); background:#fff7ed; }
+
+  .type-toggle{ display:flex; gap:6px; }
+  .type-toggle button{
+    flex:1;
+    border:1px solid var(--border);
+    background:#fff;
+    padding:8px;
+    border-radius:8px;
+    font-size:.8rem;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--muted);
+  }
+  .type-toggle button.active{ background:#1e293b; color:#fff; border-color:#1e293b; }
+
+  .dow-pick{ display:flex; gap:5px; flex-wrap:wrap; }
+  .dow-pick button{
+    width:38px; height:38px;
+    border-radius:50%;
+    border:1px solid var(--border);
+    background:#fff;
+    font-size:.72rem;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--muted);
+  }
+  .dow-pick button.active{ background:#1e293b; color:#fff; border-color:#1e293b; }
+
+  .modal-actions{ display:flex; gap:10px; margin-top:18px; }
+  .btn-primary{
+    flex:1; background:#1e293b; color:#fff; border:none; border-radius:9px;
+    padding:11px; font-size:.9rem; font-weight:700; cursor:pointer;
+  }
+  .btn-secondary{
+    background:#fff; color:var(--muted); border:1px solid var(--border); border-radius:9px;
+    padding:11px 16px; font-size:.9rem; font-weight:700; cursor:pointer;
+  }
+  .btn-danger{
+    background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:9px;
+    padding:11px 16px; font-size:.9rem; font-weight:700; cursor:pointer;
+  }
+  .error-msg{ color:#dc2626; font-size:.78rem; margin-top:-6px; margin-bottom:10px; display:none; }
+
+  .detalle-color{ width:14px; height:14px; border-radius:4px; display:inline-block; margin-right:6px; vertical-align:-2px;}
+
+  #connStatus{
+    position:fixed; top:10px; left:50%; transform:translateX(-50%);
+    background:#111827; color:#fff; padding:6px 14px; border-radius:20px;
+    font-size:.72rem; z-index:200; opacity:0; transition:opacity .3s; pointer-events:none;
+  }
+  #connStatus.show{ opacity:1; }
+
+  @media (max-width:720px){
+    .calendar{ grid-template-columns:40px repeat(7, minmax(105px,1fr)); }
+    header.top h1{ font-size:1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="connStatus"></div>
+
+<header class="top">
+  <h1>🗓️ Planificador Familiar</h1>
+  <p>Horario semanal de Hilario, Helena, Ana y Marcos — curso escolar Extremadura 2026/2027</p>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--hilario)"></i>Hilario</span>
+    <span><i class="dot" style="background:var(--helena)"></i>Helena</span>
+    <span><i class="dot" style="background:var(--ana)"></i>Ana</span>
+    <span><i class="dot" style="background:var(--marcos)"></i>Marcos</span>
+    <span><i class="dot" style="background:#fca5a5"></i>Día no lectivo (calendario escolar Extremadura)</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="conjunta" onclick="cambiarVista('conjunta')">Vista conjunta</button>
+    <button class="tab-btn" data-tab="Hilario" onclick="cambiarVista('Hilario')">Hilario</button>
+    <button class="tab-btn" data-tab="Helena" onclick="cambiarVista('Helena')">Helena</button>
+    <button class="tab-btn" data-tab="Ana" onclick="cambiarVista('Ana')">Ana</button>
+    <button class="tab-btn" data-tab="Marcos" onclick="cambiarVista('Marcos')">Marcos</button>
+  </div>
+
+  <div class="week-nav">
+    <div class="nav-buttons">
+      <button onclick="cambiarSemana(-1)">◀ Semana anterior</button>
+      <button class="today-btn" onclick="irHoy()">Hoy</button>
+      <button onclick="cambiarSemana(1)">Semana siguiente ▶</button>
+    </div>
+    <div>
+      <div class="range" id="rangoSemana">—</div>
+      <div class="muted-note" id="notaLectiva"></div>
+    </div>
+  </div>
+</div>
+
+<div class="calendar-wrap">
+  <div class="calendar" id="calendar"></div>
+</div>
+
+<button class="fab" onclick="abrirModalNuevo()">+ Añadir actividad</button>
+
+<!-- Modal: nueva actividad -->
+<div class="modal-overlay hidden" id="modalNuevo">
+  <div class="modal">
+    <h2>Nueva actividad</h2>
+    <p class="sub">Rellena los datos y guarda. Se sincroniza al instante con el resto de dispositivos.</p>
+
+    <div class="field">
+      <label>Miembro</label>
+      <div class="member-pick" id="memberPick">
+        <button type="button" class="sel-Hilario" onclick="seleccionarMiembro('Hilario')">Hilario</button>
+        <button type="button" class="sel-Helena" onclick="seleccionarMiembro('Helena')">Helena</button>
+        <button type="button" class="sel-Ana" onclick="seleccionarMiembro('Ana')">Ana</button>
+        <button type="button" class="sel-Marcos" onclick="seleccionarMiembro('Marcos')">Marcos</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Título de la actividad</label>
+      <input type="text" id="fTitulo" placeholder="Ej: Entrenamiento fútbol, Clase de inglés...">
+    </div>
+
+    <div class="field">
+      <label>Repetición</label>
+      <div class="type-toggle">
+        <button type="button" id="btnUnica" class="active" onclick="seleccionarTipo('unico')">Un solo día</button>
+        <button type="button" id="btnRepetida" onclick="seleccionarTipo('recurrente')">Se repite (curso)</button>
+      </div>
+    </div>
+
+    <div id="bloqueUnico">
+      <div class="field">
+        <label>Fecha</label>
+        <input type="date" id="fFecha">
+      </div>
+    </div>
+
+    <div id="bloqueRecurrente" style="display:none">
+      <div class="field">
+        <label>Días de la semana</label>
+        <div class="dow-pick" id="dowPick">
+          <button type="button" data-d="1" onclick="toggleDia(1)">L</button>
+          <button type="button" data-d="2" onclick="toggleDia(2)">M</button>
+          <button type="button" data-d="3" onclick="toggleDia(3)">X</button>
+          <button type="button" data-d="4" onclick="toggleDia(4)">J</button>
+          <button type="button" data-d="5" onclick="toggleDia(5)">V</button>
+          <button type="button" data-d="6" onclick="toggleDia(6)">S</button>
+          <button type="button" data-d="7" onclick="toggleDia(7)">D</button>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Fecha inicio</label>
+          <input type="date" id="fFechaInicio">
+        </div>
+        <div class="field">
+          <label>Fecha fin</label>
+          <input type="date" id="fFechaFin">
+        </div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Hora inicio</label>
+        <input type="time" id="fHoraInicio" value="17:00">
+      </div>
+      <div class="field">
+        <label>Hora fin</label>
+        <input type="time" id="fHoraFin" value="18:00">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Notas (opcional)</label>
+      <textarea id="fNotas" placeholder="Lugar, quién lleva, material necesario..."></textarea>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="cerrarModalNuevo()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarActividad()">Guardar actividad</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: detalle / borrar -->
+<div class="modal-overlay hidden" id="modalDetalle">
+  <div class="modal">
+    <h2 id="detTitulo"></h2>
+    <p class="sub" id="detMiembro"></p>
+    <div class="field">
+      <label>Cuándo</label>
+      <div id="detCuando" style="font-size:.88rem"></div>
+    </div>
+    <div class="field" id="detNotasWrap" style="display:none">
+      <label>Notas</label>
+      <div id="detNotas" style="font-size:.85rem;color:#374151"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="cerrarModalDetalle()">Cerrar</button>
+      <button class="btn-danger" onclick="borrarActividadActual()">Eliminar actividad</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIGURACIÓN DE FIREBASE
+   Sustituye estos valores por los de tu propio proyecto de
+   Firebase (Firestore Database en modo producción o prueba).
+   Consejo -> console.firebase.google.com -> crear proyecto ->
+   Firestore Database -> Configuración del proyecto -> tus apps
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyA7Q7jniveEqu6_HkJoSvry8JP8Wg49Z84",
+  authDomain: "dieta-hilario-2ecbd.firebaseapp.com",
+  databaseURL: "https://dieta-hilario-2ecbd-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "dieta-hilario-2ecbd",
+  storageBucket: "dieta-hilario-2ecbd.firebasestorage.app",
+  messagingSenderId: "145044988123",
+  appId: "1:145044988123:web:705ee47c673ceffe9becfe"
+};
+
+let db = null;
+let eventosRef = null; // referencia al nodo /eventos en Realtime Database
+
+/* =========================================================
+   CALENDARIO ESCOLAR OFICIAL - EXTREMADURA CURSO 2026/2027
+   Fuente: Resolución de 15 de junio de 2026, DOE nº116
+   (2º ciclo Infantil, Primaria, ESO)
+   ========================================================= */
+const CURSO_INICIO = "2026-09-10";
+const CURSO_FIN    = "2027-06-18";
+
+const PERIODOS_NO_LECTIVOS = [
+  { inicio:"2026-12-23", fin:"2027-01-07", motivo:"Navidad" },
+  { inicio:"2027-03-22", fin:"2027-03-29", motivo:"Semana Santa" }
+];
+
+const DIAS_NO_LECTIVOS_SUELTOS = {
+  "2026-09-08":"Día de Extremadura",
+  "2026-10-12":"Fiesta Nacional",
+  "2026-11-01":"Todos los Santos",
+  "2026-11-02":"Lunes tras Todos los Santos",
+  "2026-12-06":"Día de la Constitución",
+  "2026-12-07":"Lunes tras Constitución",
+  "2026-12-08":"Inmaculada Concepción",
+  "2027-01-29":"Día del Docente",
+  "2027-02-08":"Carnaval",
+  "2027-02-09":"Carnaval",
+  "2027-05-01":"Fiesta del Trabajo"
+};
+
+function infoNoLectivo(fechaStr){
+  if (fechaStr < CURSO_INICIO || fechaStr > CURSO_FIN) return "Fuera del curso lectivo";
+  if (DIAS_NO_LECTIVOS_SUELTOS[fechaStr]) return DIAS_NO_LECTIVOS_SUELTOS[fechaStr];
+  for (const p of PERIODOS_NO_LECTIVOS){
+    if (fechaStr >= p.inicio && fechaStr <= p.fin) return p.motivo;
+  }
+  return null; // es día lectivo
+}
+
+/* =========================================================
+   CONFIG MIEMBROS Y HORAS VISIBLES
+   ========================================================= */
+const MIEMBROS = ["Hilario","Helena","Ana","Marcos"];
+const COLORES = { Hilario:"#2563eb", Helena:"#db2777", Ana:"#16a34a", Marcos:"#ea580c" };
+const HORA_INICIO_GRID = 7;   // 07:00
+const HORA_FIN_GRID = 23;     // 23:00
+const ALTURA_HORA = 52;       // px por hora, debe coincidir con .hour-label / .hour-line
+
+const DOW_NOMBRES = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+let vistaActual = "conjunta"; // 'conjunta' | nombre de miembro
+let inicioSemana = getLunes(new Date());
+let eventos = []; // cache local de documentos de Firestore
+let tipoActual = "unico";
+let miembroSeleccionado = "Hilario";
+let diasSeleccionados = new Set();
+let eventoDetalleActualId = null;
+
+/* =========================================================
+   UTILIDADES DE FECHA
+   ========================================================= */
+function getLunes(d){
+  const date = new Date(d);
+  const day = date.getDay(); // 0=domingo
+  const diff = (day === 0 ? -6 : 1 - day);
+  date.setDate(date.getDate() + diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+function addDias(d, n){
+  const nd = new Date(d);
+  nd.setDate(nd.getDate() + n);
+  return nd;
+}
+function fmtISO(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function fmtLargo(d){
+  return d.toLocaleDateString("es-ES", { weekday:"long", day:"numeric", month:"long" });
+}
+function isoWeekday(d){
+  const wd = d.getDay();
+  return wd === 0 ? 7 : wd;
+}
+function hoyISO(){ return fmtISO(new Date()); }
+
+/* =========================================================
+   INICIALIZACIÓN
+   ========================================================= */
+window.addEventListener("load", function(){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    eventosRef = db.ref("eventos");
+    escucharEventos();
+  }catch(e){
+    console.error("Error iniciando Firebase:", e);
+    mostrarConexion("⚠️ Configura tu Firebase en el código (firebaseConfig)");
+  }
+  seleccionarMiembro("Hilario");
+  seleccionarTipo("unico");
+  renderTodo();
+});
+
+function escucharEventos(){
+  eventosRef.on("value", function(snapshot){
+    eventos = [];
+    snapshot.forEach(function(child){
+      eventos.push(Object.assign({ id: child.key }, child.val()));
+    });
+    mostrarConexion("✓ Sincronizado");
+    renderCalendario();
+  }, function(err){
+    console.error(err);
+    mostrarConexion("⚠️ Sin conexión a la base de datos");
+  });
+}
+
+function mostrarConexion(msg){
+  const el = document.getElementById("connStatus");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(()=> el.classList.remove("show"), 2200);
+}
+
+/* =========================================================
+   NAVEGACIÓN DE VISTAS Y SEMANAS
+   ========================================================= */
+function cambiarVista(v){
+  vistaActual = v;
+  document.querySelectorAll(".tab-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.tab === v);
+  });
+  renderCalendario();
+}
+
+function cambiarSemana(dir){
+  inicioSemana = addDias(inicioSemana, dir*7);
+  renderTodo();
+}
+
+function irHoy(){
+  inicioSemana = getLunes(new Date());
+  renderTodo();
+}
+
+function renderTodo(){
+  renderCabeceraSemana();
+  renderCalendario();
+}
+
+function renderCabeceraSemana(){
+  const fin = addDias(inicioSemana, 6);
+  const rango = `${inicioSemana.getDate()} ${inicioSemana.toLocaleDateString("es-ES",{month:"short"})} — ${fin.getDate()} ${fin.toLocaleDateString("es-ES",{month:"short"})} ${fin.getFullYear()}`;
+  document.getElementById("rangoSemana").textContent = rango;
+
+  const inicioISO = fmtISO(inicioSemana);
+  let nota = "";
+  if (inicioISO < CURSO_INICIO) nota = "Antes del inicio del curso lectivo (10 sept. 2026)";
+  else if (inicioISO > CURSO_FIN) nota = "Curso lectivo ya finalizado (18 jun. 2027)";
+  document.getElementById("notaLectiva").textContent = nota;
+}
+
+/* =========================================================
+   CONSTRUCCIÓN DEL GRID
+   ========================================================= */
+function renderCalendario(){
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+
+  // --- Fila de cabecera ---
+  const corner = document.createElement("div");
+  corner.className = "head-cell corner";
+  cal.appendChild(corner);
+
+  const diasSemana = [];
+  for(let i=0;i<7;i++){
+    const d = addDias(inicioSemana, i);
+    diasSemana.push(d);
+    const iso = fmtISO(d);
+    const motivo = infoNoLectivo(iso);
+    const cell = document.createElement("div");
+    cell.className = "head-cell" + (motivo ? " no-lectivo" : "") + (iso === hoyISO() ? " today" : "");
+    cell.innerHTML = `
+      <div class="dow">${DOW_NOMBRES[i]}</div>
+      <div class="dnum">${d.getDate()}</div>
+      ${motivo ? `<div class="festivo-tag">${motivo}</div>` : ""}
+    `;
+    cal.appendChild(cell);
+  }
+
+  // --- Columna de horas + columnas de días ---
+  const horasCol = document.createElement("div");
+  horasCol.className = "hour-col";
+  for(let h=HORA_INICIO_GRID; h<HORA_FIN_GRID; h++){
+    const lbl = document.createElement("div");
+    lbl.className = "hour-label";
+    lbl.textContent = `${String(h).padStart(2,"0")}:00`;
+    horasCol.appendChild(lbl);
+  }
+  cal.appendChild(horasCol);
+
+  const miembrosVisibles = vistaActual === "conjunta" ? MIEMBROS : [vistaActual];
+
+  diasSemana.forEach(function(d){
+    const iso = fmtISO(d);
+    const motivo = infoNoLectivo(iso);
+    const col = document.createElement("div");
+    col.className = "day-col" + (motivo ? " no-lectivo" : "");
+    col.style.minHeight = ((HORA_FIN_GRID-HORA_INICIO_GRID)*ALTURA_HORA)+"px";
+
+    for(let h=HORA_INICIO_GRID; h<HORA_FIN_GRID; h++){
+      const line = document.createElement("div");
+      line.className = "hour-line";
+      col.appendChild(line);
+    }
+
+    const laneLayer = document.createElement("div");
+    laneLayer.className = "lane-layer";
+    miembrosVisibles.forEach(()=>{
+      const lane = document.createElement("div");
+      lane.className = "lane";
+      laneLayer.appendChild(lane);
+    });
+    col.appendChild(laneLayer);
+
+    const eventosDelDia = eventosParaFecha(iso).filter(ev => miembrosVisibles.includes(ev.miembro));
+    eventosDelDia.forEach(ev=>{
+      const laneIndex = miembrosVisibles.indexOf(ev.miembro);
+      const lane = laneLayer.children[laneIndex];
+      const bloque = crearBloqueEvento(ev);
+      lane.appendChild(bloque);
+    });
+
+    cal.appendChild(col);
+  });
+}
+
+function crearBloqueEvento(ev){
+  const [hI,mI] = ev.horaInicio.split(":").map(Number);
+  const [hF,mF] = ev.horaFin.split(":").map(Number);
+  const top = ((hI - HORA_INICIO_GRID) + mI/60) * ALTURA_HORA;
+  let alto = (((hF - hI) + (mF-mI)/60)) * ALTURA_HORA;
+  if (alto < 20) alto = 20;
+
+  const div = document.createElement("div");
+  div.className = "event-block";
+  div.style.top = top + "px";
+  div.style.height = alto + "px";
+  div.style.background = COLORES[ev.miembro] || "#64748b";
+  div.innerHTML = `<b>${escapeHtml(ev.titulo)}</b><span class="hora">${ev.horaInicio}–${ev.horaFin}</span>`;
+  div.onclick = () => abrirModalDetalle(ev);
+  return div;
+}
+
+/* Devuelve los eventos (únicos o recurrentes) que caen en una fecha dada */
+function eventosParaFecha(iso){
+  const d = new Date(iso+"T00:00:00");
+  const wd = isoWeekday(d);
+  return eventos.filter(ev=>{
+    if (ev.tipo === "unico"){
+      return ev.fecha === iso;
+    } else {
+      if (!ev.diasSemana || !ev.diasSemana.includes(wd)) return false;
+      if (iso < ev.fechaInicio || iso > ev.fechaFin) return false;
+      return true;
+    }
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* =========================================================
+   MODAL: NUEVA ACTIVIDAD
+   ========================================================= */
+function abrirModalNuevo(){
+  document.getElementById("fTitulo").value = "";
+  document.getElementById("fFecha").value = fmtISO(new Date());
+  document.getElementById("fFechaInicio").value = fmtISO(inicioSemana);
+  document.getElementById("fFechaFin").value = CURSO_FIN;
+  document.getElementById("fHoraInicio").value = "17:00";
+  document.getElementById("fHoraFin").value = "18:00";
+  document.getElementById("fNotas").value = "";
+  document.getElementById("errorMsg").style.display = "none";
+  diasSeleccionados = new Set();
+  document.querySelectorAll("#dowPick button").forEach(b=>b.classList.remove("active"));
+  seleccionarTipo("unico");
+  seleccionarMiembro(vistaActual !== "conjunta" ? vistaActual : miembroSeleccionado);
+  document.getElementById("modalNuevo").classList.remove("hidden");
+}
+function cerrarModalNuevo(){
+  document.getElementById("modalNuevo").classList.add("hidden");
+}
+function seleccionarMiembro(m){
+  miembroSeleccionado = m;
+  document.querySelectorAll("#memberPick button").forEach(b=>{
+    b.classList.toggle("active", b.classList.contains("sel-"+m));
+  });
+}
+function seleccionarTipo(t){
+  tipoActual = t;
+  document.getElementById("btnUnica").classList.toggle("active", t==="unico");
+  document.getElementById("btnRepetida").classList.toggle("active", t==="recurrente");
+  document.getElementById("bloqueUnico").style.display = t==="unico" ? "block":"none";
+  document.getElementById("bloqueRecurrente").style.display = t==="recurrente" ? "block":"none";
+}
+function toggleDia(n){
+  const btn = document.querySelector(`#dowPick button[data-d="${n}"]`);
+  if (diasSeleccionados.has(n)){
+    diasSeleccionados.delete(n);
+    btn.classList.remove("active");
+  } else {
+    diasSeleccionados.add(n);
+    btn.classList.add("active");
+  }
+}
+
+function guardarActividad(){
+  const titulo = document.getElementById("fTitulo").value.trim();
+  const horaInicio = document.getElementById("fHoraInicio").value;
+  const horaFin = document.getElementById("fHoraFin").value;
+  const notas = document.getElementById("fNotas").value.trim();
+  const err = document.getElementById("errorMsg");
+
+  if (!titulo){ return mostrarError("Ponle un título a la actividad."); }
+  if (!horaInicio || !horaFin || horaFin <= horaInicio){ return mostrarError("Revisa las horas: la hora de fin debe ser posterior a la de inicio."); }
+
+  let datos = {
+    miembro: miembroSeleccionado,
+    titulo: titulo,
+    notas: notas,
+    horaInicio: horaInicio,
+    horaFin: horaFin,
+    tipo: tipoActual,
+    creado: firebase.database.ServerValue.TIMESTAMP
+  };
+
+  if (tipoActual === "unico"){
+    const fecha = document.getElementById("fFecha").value;
+    if (!fecha) return mostrarError("Elige una fecha.");
+    datos.fecha = fecha;
+  } else {
+    const fi = document.getElementById("fFechaInicio").value;
+    const ff = document.getElementById("fFechaFin").value;
+    if (!fi || !ff) return mostrarError("Indica fecha de inicio y de fin.");
+    if (ff < fi) return mostrarError("La fecha fin no puede ser anterior a la de inicio.");
+    if (diasSeleccionados.size === 0) return mostrarError("Selecciona al menos un día de la semana.");
+    datos.fechaInicio = fi;
+    datos.fechaFin = ff;
+    datos.fecha = fi; // para poder ordenar por 'fecha' en Firestore
+    datos.diasSemana = Array.from(diasSeleccionados).sort();
+  }
+
+  err.style.display = "none";
+
+  if (!eventosRef){ return mostrarError("Firebase no está configurado todavía."); }
+
+  eventosRef.push(datos).then(()=>{
+    cerrarModalNuevo();
+  }).catch(e=>{
+    console.error(e);
+    mostrarError("No se pudo guardar. Revisa tu configuración de Firebase.");
+  });
+}
+function mostrarError(msg){
+  const err = document.getElementById("errorMsg");
+  err.textContent = msg;
+  err.style.display = "block";
+}
+
+/* =========================================================
+   MODAL: DETALLE / BORRAR
+   ========================================================= */
+function abrirModalDetalle(ev){
+  eventoDetalleActualId = ev.id;
+  document.getElementById("detTitulo").innerHTML =
+    `<span class="detalle-color" style="background:${COLORES[ev.miembro]}"></span>${escapeHtml(ev.titulo)}`;
+  document.getElementById("detMiembro").textContent = ev.miembro;
+
+  let cuando = "";
+  if (ev.tipo === "unico"){
+    const d = new Date(ev.fecha+"T00:00:00");
+    cuando = `${fmtLargo(d)} · ${ev.horaInicio}–${ev.horaFin}`;
+  } else {
+    const nombres = ev.diasSemana.map(n => DOW_NOMBRES[n-1]).join(", ");
+    const di = new Date(ev.fechaInicio+"T00:00:00");
+    const dfEnd = new Date(ev.fechaFin+"T00:00:00");
+    cuando = `Se repite: ${nombres} · ${ev.horaInicio}–${ev.horaFin}<br>Del ${di.toLocaleDateString("es-ES")} al ${dfEnd.toLocaleDateString("es-ES")}`;
+  }
+  document.getElementById("detCuando").innerHTML = cuando;
+
+  const notasWrap = document.getElementById("detNotasWrap");
+  if (ev.notas){
+    notasWrap.style.display = "block";
+    document.getElementById("detNotas").textContent = ev.notas;
+  } else {
+    notasWrap.style.display = "none";
+  }
+
+  document.getElementById("modalDetalle").classList.remove("hidden");
+}
+function cerrarModalDetalle(){
+  document.getElementById("modalDetalle").classList.add("hidden");
+  eventoDetalleActualId = null;
+}
+function borrarActividadActual(){
+  if (!eventoDetalleActualId) return;
+  if (!confirm("¿Eliminar esta actividad? Esta acción no se puede deshacer.")) return;
+  eventosRef.child(eventoDetalleActualId).remove().then(()=>{
+    cerrarModalDetalle();
+  }).catch(e=>{
+    console.error(e);
+    alert("No se pudo eliminar la actividad.");
+  });
+}
+
+/* Exponer al scope global para los onclick inline */
+window.cambiarVista = cambiarVista;
+window.cambiarSemana = cambiarSemana;
+window.irHoy = irHoy;
+window.abrirModalNuevo = abrirModalNuevo;
+window.cerrarModalNuevo = cerrarModalNuevo;
+window.seleccionarMiembro = seleccionarMiembro;
+window.seleccionarTipo = seleccionarTipo;
+window.toggleDia = toggleDia;
+window.guardarActividad = guardarActividad;
+window.cerrarModalDetalle = cerrarModalDetalle;
+window.borrarActividadActual = borrarActividadActual;
+</script>
+</body>
+</html>
