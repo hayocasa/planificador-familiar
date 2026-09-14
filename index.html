@@ -699,17 +699,47 @@
 
     <div class="field">
       <label>Concepto</label>
-      <input type="text" id="opConcepto" placeholder="Ej: Material de conservatorio, viaje de fin de curso...">
+      <input type="text" id="opConcepto" placeholder="Ej: Material de conservatorio, campamento de verano...">
     </div>
 
-    <div class="row2">
-      <div class="field">
-        <label>Importe (€)</label>
-        <input type="text" id="opImporte" inputmode="decimal" placeholder="Ej: 40">
+    <div class="field">
+      <label>Repetición</label>
+      <div class="type-toggle">
+        <button type="button" id="btnOPUnico" class="active" onclick="seleccionarTipoOtroPago('unico')">Pago único</button>
+        <button type="button" id="btnOPRecurrente" onclick="seleccionarTipoOtroPago('recurrente')">Varios meses</button>
       </div>
-      <div class="field">
-        <label>Fecha</label>
-        <input type="date" id="opFecha">
+    </div>
+
+    <div id="bloqueOPUnico">
+      <div class="row2">
+        <div class="field">
+          <label>Importe (€)</label>
+          <input type="text" id="opImporte" inputmode="decimal" placeholder="Ej: 40">
+        </div>
+        <div class="field">
+          <label>Fecha</label>
+          <input type="date" id="opFecha">
+        </div>
+      </div>
+    </div>
+
+    <div id="bloqueOPRecurrente" style="display:none">
+      <p class="sub" style="margin:-4px 0 12px">Elige el rango de meses — puede incluir julio y agosto (campamentos, actividades de verano...).</p>
+      <div class="row2">
+        <div class="field">
+          <label>Importe mensual (€)</label>
+          <input type="text" id="opCuota" inputmode="decimal" placeholder="Ej: 60">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Mes inicio</label>
+          <input type="month" id="opMesInicio">
+        </div>
+        <div class="field">
+          <label>Mes fin</label>
+          <input type="month" id="opMesFin">
+        </div>
       </div>
     </div>
 
@@ -813,6 +843,7 @@ let actividadesPago = [];
 let otrosPagos = [];
 let miembroSeleccionadoPago = "Ana";
 let miembroSeleccionadoOtroPago = "Ana";
+let tipoOtroPagoActual = "unico";
 
 const MESES_NOMBRE = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
@@ -1096,6 +1127,51 @@ function renderPagos(){
   renderOtrosPagos();
 }
 
+/* Tarjeta genérica de "cuota mensual" (meses en pastillas clicables).
+   La reutilizan tanto las actividades extraescolares como los pagos
+   recurrentes de "Otros pagos". */
+function crearTarjetaCuotaMensual(opts){
+  const { nino, titulo, cuota, notaExtra, mesInicio, mesFin, pagos, onToggleMes, onBorrar, textoBorrar } = opts;
+  const meses = mesesEntre(mesInicio, mesFin);
+  const pendientes = meses.filter(mk => !pagos[mk]).length;
+
+  const card = document.createElement("div");
+  card.className = "pago-card";
+
+  const top = document.createElement("div");
+  top.className = "pago-card-top";
+  top.innerHTML = `
+    <div class="pago-card-info">
+      <div class="quien"><span class="detalle-color" style="background:${COLORES[nino]}"></span>${nino}</div>
+      <b>${escapeHtml(titulo)}</b>
+      <div class="cuota">${cuota ? cuota+" €/mes" : ""}${notaExtra ? " · "+escapeHtml(notaExtra) : ""}</div>
+    </div>
+    <div class="pendientes-tag ${pendientes===0 ? "al-dia":""}">${pendientes===0 ? "Al día" : pendientes+" pendiente"+(pendientes>1?"s":"")}</div>
+  `;
+  card.appendChild(top);
+
+  const grid = document.createElement("div");
+  grid.className = "meses-grid";
+  meses.forEach(mk=>{
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mes-badge" + (pagos[mk] ? " pagado" : "");
+    b.textContent = etiquetaMes(mk);
+    b.onclick = () => onToggleMes(mk, !pagos[mk]);
+    grid.appendChild(b);
+  });
+  card.appendChild(grid);
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "borrar-link";
+  del.textContent = textoBorrar;
+  del.onclick = onBorrar;
+  card.appendChild(del);
+
+  return card;
+}
+
 function renderActividadesPago(){
   const cont = document.getElementById("listaActividadesPago");
   cont.innerHTML = "";
@@ -1104,44 +1180,18 @@ function renderActividadesPago(){
     return;
   }
   actividadesPago.forEach(act=>{
-    const meses = mesesEntre(act.mesInicio, act.mesFin);
-    const pagos = act.pagos || {};
-    const pendientes = meses.filter(mk => !pagos[mk]).length;
-
-    const card = document.createElement("div");
-    card.className = "pago-card";
-
-    const top = document.createElement("div");
-    top.className = "pago-card-top";
-    top.innerHTML = `
-      <div class="pago-card-info">
-        <div class="quien"><span class="detalle-color" style="background:${COLORES[act.nino]}"></span>${act.nino}</div>
-        <b>${escapeHtml(act.nombre)}</b>
-        <div class="cuota">${act.cuota ? act.cuota+" €/mes" : ""}${act.diaPago ? " · "+escapeHtml(act.diaPago) : ""}</div>
-      </div>
-      <div class="pendientes-tag ${pendientes===0 ? "al-dia":""}">${pendientes===0 ? "Al día" : pendientes+" pendiente"+(pendientes>1?"s":"")}</div>
-    `;
-    card.appendChild(top);
-
-    const grid = document.createElement("div");
-    grid.className = "meses-grid";
-    meses.forEach(mk=>{
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "mes-badge" + (pagos[mk] ? " pagado" : "");
-      b.textContent = etiquetaMes(mk);
-      b.onclick = () => toggleMesPagado(act.id, mk, !pagos[mk]);
-      grid.appendChild(b);
+    const card = crearTarjetaCuotaMensual({
+      nino: act.nino,
+      titulo: act.nombre,
+      cuota: act.cuota,
+      notaExtra: act.diaPago,
+      mesInicio: act.mesInicio,
+      mesFin: act.mesFin,
+      pagos: act.pagos || {},
+      onToggleMes: (mk, val) => toggleMesPagado(act.id, mk, val),
+      onBorrar: () => borrarActividadPago(act.id),
+      textoBorrar: "Eliminar esta actividad"
     });
-    card.appendChild(grid);
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "borrar-link";
-    del.textContent = "Eliminar esta actividad";
-    del.onclick = () => borrarActividadPago(act.id);
-    card.appendChild(del);
-
     cont.appendChild(card);
   });
 }
@@ -1153,8 +1203,31 @@ function renderOtrosPagos(){
     cont.innerHTML = `<div class="empty-note">No hay otros pagos registrados.</div>`;
     return;
   }
-  const ordenados = otrosPagos.slice().sort((a,b)=> (a.fecha||"").localeCompare(b.fecha||""));
+  const ordenados = otrosPagos.slice().sort((a,b)=>{
+    const claveA = a.tipo === "recurrente" ? a.mesInicio : (a.fecha||"");
+    const claveB = b.tipo === "recurrente" ? b.mesInicio : (b.fecha||"");
+    return (claveA||"").localeCompare(claveB||"");
+  });
+
   ordenados.forEach(p=>{
+    if (p.tipo === "recurrente"){
+      const card = crearTarjetaCuotaMensual({
+        nino: p.nino,
+        titulo: p.concepto,
+        cuota: p.cuota,
+        notaExtra: p.notas,
+        mesInicio: p.mesInicio,
+        mesFin: p.mesFin,
+        pagos: p.pagos || {},
+        onToggleMes: (mk, val) => toggleMesOtroPago(p.id, mk, val),
+        onBorrar: () => borrarOtroPago(p.id),
+        textoBorrar: "Eliminar este pago"
+      });
+      cont.appendChild(card);
+      return;
+    }
+
+    // Pago único (comportamiento original)
     const card = document.createElement("div");
     card.className = "pago-card";
     const fechaFmt = p.fecha ? new Date(p.fecha+"T00:00:00").toLocaleDateString("es-ES") : "";
@@ -1269,9 +1342,14 @@ function abrirModalOtroPago(){
   document.getElementById("opConcepto").value = "";
   document.getElementById("opImporte").value = "";
   document.getElementById("opFecha").value = fmtISO(new Date());
+  document.getElementById("opCuota").value = "";
+  const mesActual = fmtISO(new Date()).slice(0,7);
+  document.getElementById("opMesInicio").value = mesActual;
+  document.getElementById("opMesFin").value = mesActual;
   document.getElementById("opNotas").value = "";
   document.getElementById("errorMsgOP").style.display = "none";
   seleccionarMiembroOtroPago("Ana");
+  seleccionarTipoOtroPago("unico");
   document.getElementById("modalOtroPago").classList.remove("hidden");
 }
 function cerrarModalOtroPago(){
@@ -1283,25 +1361,46 @@ function seleccionarMiembroOtroPago(m){
     b.classList.toggle("active", b.classList.contains("sel-"+m));
   });
 }
+function seleccionarTipoOtroPago(t){
+  tipoOtroPagoActual = t;
+  document.getElementById("btnOPUnico").classList.toggle("active", t==="unico");
+  document.getElementById("btnOPRecurrente").classList.toggle("active", t==="recurrente");
+  document.getElementById("bloqueOPUnico").style.display = t==="unico" ? "block":"none";
+  document.getElementById("bloqueOPRecurrente").style.display = t==="recurrente" ? "block":"none";
+}
 function guardarOtroPago(){
   const concepto = document.getElementById("opConcepto").value.trim();
-  const importe = document.getElementById("opImporte").value.trim();
-  const fecha = document.getElementById("opFecha").value;
   const notas = document.getElementById("opNotas").value.trim();
   const err = document.getElementById("errorMsgOP");
 
   if (!concepto){ err.textContent = "Indica el concepto del pago."; err.style.display="block"; return; }
 
-  err.style.display = "none";
-
-  const datos = {
+  let datos = {
     nino: miembroSeleccionadoOtroPago,
     concepto: concepto,
-    importe: importe ? Number(importe.replace(",",".")) : null,
-    fecha: fecha || null,
     notas: notas,
-    pagado: false
+    tipo: tipoOtroPagoActual
   };
+
+  if (tipoOtroPagoActual === "unico"){
+    const importe = document.getElementById("opImporte").value.trim();
+    const fecha = document.getElementById("opFecha").value;
+    datos.importe = importe ? Number(importe.replace(",",".")) : null;
+    datos.fecha = fecha || null;
+    datos.pagado = false;
+  } else {
+    const cuota = document.getElementById("opCuota").value.trim();
+    const mesInicio = document.getElementById("opMesInicio").value;
+    const mesFin = document.getElementById("opMesFin").value;
+    if (!mesInicio || !mesFin){ err.textContent = "Indica mes de inicio y mes de fin."; err.style.display="block"; return; }
+    if (mesFin < mesInicio){ err.textContent = "El mes de fin no puede ser anterior al de inicio."; err.style.display="block"; return; }
+    datos.cuota = cuota ? Number(cuota.replace(",",".")) : null;
+    datos.mesInicio = mesInicio;
+    datos.mesFin = mesFin;
+    datos.pagos = {};
+  }
+
+  err.style.display = "none";
 
   otrosPagosRef.push(datos).then(()=>{
     cerrarModalOtroPago();
@@ -1313,6 +1412,9 @@ function guardarOtroPago(){
 }
 function toggleOtroPagoPagado(id, nuevoValor){
   otrosPagosRef.child(id).child("pagado").set(nuevoValor);
+}
+function toggleMesOtroPago(id, mesKey, nuevoValor){
+  otrosPagosRef.child(id).child("pagos").child(mesKey).set(nuevoValor);
 }
 function borrarOtroPago(id){
   if (!confirm("¿Eliminar este pago?")) return;
@@ -1483,6 +1585,7 @@ window.guardarActividadPago = guardarActividadPago;
 window.abrirModalOtroPago = abrirModalOtroPago;
 window.cerrarModalOtroPago = cerrarModalOtroPago;
 window.seleccionarMiembroOtroPago = seleccionarMiembroOtroPago;
+window.seleccionarTipoOtroPago = seleccionarTipoOtroPago;
 window.guardarOtroPago = guardarOtroPago;
 </script>
 </body>
