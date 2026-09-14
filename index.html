@@ -134,6 +134,25 @@
   }
   .nav-buttons button:hover, .today-btn:hover{ background:#f1f3f6; }
 
+  .view-toggle{ display:flex; gap:4px; background:#f1f3f6; padding:3px; border-radius:9px; }
+  .view-toggle button{
+    border:none; background:transparent; padding:6px 14px; border-radius:7px;
+    font-size:.82rem; font-weight:700; cursor:pointer; color:var(--muted);
+  }
+  .view-toggle button.active{ background:#fff; color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.12); }
+
+  .dia-picker-row{
+    display:flex; gap:6px; flex-wrap:wrap;
+    background:var(--card); padding:8px 16px; border-radius:12px; box-shadow:var(--shadow);
+    margin-bottom:14px;
+  }
+  .dia-picker-row button{
+    border:1px solid var(--border); background:#fff; border-radius:8px;
+    padding:7px 12px; font-size:.8rem; font-weight:700; cursor:pointer; color:var(--muted);
+  }
+  .dia-picker-row button.active{ background:#1e293b; color:#fff; border-color:#1e293b; }
+  .dia-picker-row button.no-lectivo:not(.active){ color:#dc2626; border-color:#fca5a5; }
+
   .calendar-wrap{
     max-width:1400px;
     margin:0 auto;
@@ -485,14 +504,22 @@
 
   <div class="week-nav">
     <div class="nav-buttons">
-      <button onclick="cambiarSemana(-1)">◀ Semana anterior</button>
+      <button id="btnNavAnterior" onclick="cambiarSemana(-1)">◀ Semana anterior</button>
       <button class="today-btn" onclick="irHoy()">Hoy</button>
-      <button onclick="cambiarSemana(1)">Semana siguiente ▶</button>
+      <button id="btnNavSiguiente" onclick="cambiarSemana(1)">Semana siguiente ▶</button>
     </div>
     <div>
       <div class="range" id="rangoSemana">—</div>
       <div class="muted-note" id="notaLectiva"></div>
     </div>
+    <div class="view-toggle">
+      <button id="btnVistaSemana" class="active" onclick="cambiarModoVista('semana')">Semana</button>
+      <button id="btnVistaDia" onclick="cambiarModoVista('dia')">Día</button>
+    </div>
+  </div>
+
+  <div class="dia-picker-row" id="diaPickerRow" style="display:none">
+    <!-- se rellena por JS con un botón por día de la semana en curso -->
   </div>
 </div>
 
@@ -838,6 +865,9 @@ let miembroSeleccionado = "Hilario";
 let diasSeleccionados = new Set();
 let eventoDetalleActualId = null;
 
+let modoVista = "semana"; // 'semana' | 'dia'
+let diaSeleccionado = (function(){ const d = new Date(); d.setHours(0,0,0,0); return d; })();
+
 let seccionActual = "calendario"; // 'calendario' | 'pagos'
 let actividadesPago = [];
 let otrosPagos = [];
@@ -960,22 +990,76 @@ function cambiarSeccion(s){
   if (s === "pagos") renderPagos();
 }
 
+function cambiarModoVista(m){
+  modoVista = m;
+  document.getElementById("btnVistaSemana").classList.toggle("active", m==="semana");
+  document.getElementById("btnVistaDia").classList.toggle("active", m==="dia");
+  document.getElementById("diaPickerRow").style.display = m==="dia" ? "flex":"none";
+  document.getElementById("btnNavAnterior").textContent = m==="dia" ? "◀ Día anterior" : "◀ Semana anterior";
+  document.getElementById("btnNavSiguiente").textContent = m==="dia" ? "Día siguiente ▶" : "Semana siguiente ▶";
+
+  if (m === "dia"){
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const finSemana = addDias(inicioSemana, 6);
+    diaSeleccionado = (hoy >= inicioSemana && hoy <= finSemana) ? hoy : new Date(inicioSemana);
+  }
+  renderTodo();
+}
+
 function cambiarSemana(dir){
-  inicioSemana = addDias(inicioSemana, dir*7);
+  if (modoVista === "dia"){
+    diaSeleccionado = addDias(diaSeleccionado, dir);
+    inicioSemana = getLunes(diaSeleccionado);
+  } else {
+    inicioSemana = addDias(inicioSemana, dir*7);
+  }
   renderTodo();
 }
 
 function irHoy(){
-  inicioSemana = getLunes(new Date());
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  inicioSemana = getLunes(hoy);
+  diaSeleccionado = hoy;
+  renderTodo();
+}
+
+function seleccionarDiaPicker(offset){
+  diaSeleccionado = addDias(inicioSemana, offset);
   renderTodo();
 }
 
 function renderTodo(){
   renderCabeceraSemana();
+  if (modoVista === "dia") renderDiaPicker();
   renderCalendario();
 }
 
+function renderDiaPicker(){
+  const cont = document.getElementById("diaPickerRow");
+  cont.innerHTML = "";
+  for (let i=0;i<7;i++){
+    const d = addDias(inicioSemana, i);
+    const iso = fmtISO(d);
+    const esNoLectivo = !!infoNoLectivo(iso);
+    const esSeleccionado = iso === fmtISO(diaSeleccionado);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = (esSeleccionado ? "active " : "") + (esNoLectivo ? "no-lectivo" : "");
+    b.textContent = `${DOW_NOMBRES[i]} ${d.getDate()}`;
+    b.onclick = () => seleccionarDiaPicker(i);
+    cont.appendChild(b);
+  }
+}
+
 function renderCabeceraSemana(){
+  if (modoVista === "dia"){
+    const texto = fmtLargo(diaSeleccionado);
+    document.getElementById("rangoSemana").textContent = texto.charAt(0).toUpperCase() + texto.slice(1);
+    const iso = fmtISO(diaSeleccionado);
+    const motivo = infoNoLectivo(iso);
+    document.getElementById("notaLectiva").textContent = motivo ? "Día no lectivo: " + motivo : "";
+    return;
+  }
   const fin = addDias(inicioSemana, 6);
   const rango = `${inicioSemana.getDate()} ${inicioSemana.toLocaleDateString("es-ES",{month:"short"})} — ${fin.getDate()} ${fin.toLocaleDateString("es-ES",{month:"short"})} ${fin.getFullYear()}`;
   document.getElementById("rangoSemana").textContent = rango;
@@ -994,26 +1078,31 @@ function renderCalendario(){
   const cal = document.getElementById("calendar");
   cal.innerHTML = "";
 
+  const diasSemana = modoVista === "dia" ? [new Date(diaSeleccionado)] : [];
+  if (modoVista === "semana"){
+    for(let i=0;i<7;i++) diasSemana.push(addDias(inicioSemana, i));
+  }
+  cal.style.gridTemplateColumns = modoVista === "dia"
+    ? "56px minmax(280px,1fr)"
+    : "56px repeat(7, minmax(130px,1fr))";
+
   // --- Fila de cabecera ---
   const corner = document.createElement("div");
   corner.className = "head-cell corner";
   cal.appendChild(corner);
 
-  const diasSemana = [];
-  for(let i=0;i<7;i++){
-    const d = addDias(inicioSemana, i);
-    diasSemana.push(d);
+  diasSemana.forEach(function(d, i){
     const iso = fmtISO(d);
     const motivo = infoNoLectivo(iso);
     const cell = document.createElement("div");
     cell.className = "head-cell" + (motivo ? " no-lectivo" : "") + (iso === hoyISO() ? " today" : "");
     cell.innerHTML = `
-      <div class="dow">${DOW_NOMBRES[i]}</div>
+      <div class="dow">${DOW_NOMBRES[isoWeekday(d)-1]}</div>
       <div class="dnum">${d.getDate()}</div>
       ${motivo ? `<div class="festivo-tag">${motivo}</div>` : ""}
     `;
     cal.appendChild(cell);
-  }
+  });
 
   // --- Columna de horas + columnas de días ---
   const horasCol = document.createElement("div");
@@ -1569,6 +1658,7 @@ function borrarActividadActual(){
 window.cambiarVista = cambiarVista;
 window.cambiarSemana = cambiarSemana;
 window.irHoy = irHoy;
+window.cambiarModoVista = cambiarModoVista;
 window.abrirModalNuevo = abrirModalNuevo;
 window.cerrarModalNuevo = cerrarModalNuevo;
 window.seleccionarMiembro = seleccionarMiembro;
