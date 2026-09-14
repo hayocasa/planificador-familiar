@@ -338,6 +338,113 @@
   }
   #connStatus.show{ opacity:1; }
 
+  /* ---- Sección de secciones principales (Calendario / Pagos) ---- */
+  .main-tabs{
+    display:flex;
+    gap:8px;
+    max-width:1400px;
+    margin:16px auto 0;
+    padding:0 20px;
+  }
+  .main-tab-btn{
+    border:none;
+    background:#fff;
+    padding:10px 18px;
+    border-radius:10px;
+    font-size:.88rem;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--muted);
+    box-shadow:var(--shadow);
+  }
+  .main-tab-btn.active{ background:#1e293b; color:#fff; }
+
+  /* ---- Pagos ---- */
+  .pagos-wrap{
+    max-width:1400px;
+    margin:0 auto;
+    padding:16px 20px 100px;
+  }
+  .pagos-section-title{
+    font-size:1.05rem;
+    font-weight:800;
+    margin:22px 0 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .pagos-section-title .btn-add-mini{
+    border:none;
+    background:#1e293b;
+    color:#fff;
+    padding:7px 13px;
+    border-radius:8px;
+    font-size:.78rem;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .pago-card{
+    background:var(--card);
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    padding:14px 16px;
+    margin-bottom:10px;
+  }
+  .pago-card-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .pago-card-info b{ font-size:.95rem; }
+  .pago-card-info .quien{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:.75rem; font-weight:700; color:var(--muted); margin-bottom:3px;
+  }
+  .pago-card-info .cuota{ font-size:.78rem; color:var(--muted); margin-top:2px; }
+  .pago-card .pendientes-tag{
+    font-size:.7rem; font-weight:700; padding:4px 9px; border-radius:20px;
+    background:#fef2f2; color:#dc2626; white-space:nowrap;
+  }
+  .pago-card .pendientes-tag.al-dia{ background:#f0fdf4; color:#16a34a; }
+  .meses-grid{
+    display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;
+  }
+  .mes-badge{
+    border:none;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:.72rem;
+    font-weight:700;
+    cursor:pointer;
+    background:#f1f3f6;
+    color:var(--muted);
+  }
+  .mes-badge.pagado{
+    background:#dcfce7;
+    color:#15803d;
+  }
+  .pago-card .borrar-link{
+    border:none; background:none; color:#9ca3af; font-size:.72rem;
+    cursor:pointer; text-decoration:underline; margin-top:10px; padding:0;
+  }
+  .pago-card .borrar-link:hover{ color:#dc2626; }
+
+  .otro-pago-row{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .otro-pago-row .quien-dot{ width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+  .otro-pago-row .concepto{ font-weight:700; font-size:.88rem; }
+  .otro-pago-row .meta{ font-size:.75rem; color:var(--muted); }
+  .otro-pago-row .importe{ font-weight:700; font-size:.88rem; margin-left:auto; }
+  .pago-toggle{
+    border:none; border-radius:8px; padding:6px 12px; font-size:.72rem; font-weight:700;
+    cursor:pointer; background:#fef2f2; color:#dc2626;
+  }
+  .pago-toggle.pagado{ background:#dcfce7; color:#15803d; }
+  .empty-note{ color:var(--muted); font-size:.85rem; padding:6px 2px; }
+
   @media (max-width:720px){
     .calendar{ grid-template-columns:40px repeat(7, minmax(105px,1fr)); }
     header.top h1{ font-size:1.2rem; }
@@ -359,6 +466,13 @@
     <span><i class="dot" style="background:#fca5a5"></i>Día no lectivo (calendario escolar Extremadura)</span>
   </div>
 </header>
+
+<div class="main-tabs">
+  <button class="main-tab-btn active" id="mainTabCalendario" onclick="cambiarSeccion('calendario')">📅 Calendario</button>
+  <button class="main-tab-btn" id="mainTabPagos" onclick="cambiarSeccion('pagos')">💶 Extraescolares y pagos</button>
+</div>
+
+<div id="seccionCalendario">
 
 <div class="toolbar">
   <div class="tabs" id="tabs">
@@ -386,7 +500,28 @@
   <div class="calendar" id="calendar"></div>
 </div>
 
-<button class="fab" onclick="abrirModalNuevo()">+ Añadir actividad</button>
+<button class="fab" id="fabCalendario" onclick="abrirModalNuevo()">+ Añadir actividad</button>
+
+</div>
+
+<!-- ============== SECCIÓN PAGOS ============== -->
+<div id="seccionPagos" style="display:none">
+  <div class="pagos-wrap">
+
+    <div class="pagos-section-title">
+      <span>Actividades extraescolares y cuotas</span>
+      <button class="btn-add-mini" onclick="abrirModalActividadPago()">+ Añadir actividad</button>
+    </div>
+    <div id="listaActividadesPago"></div>
+
+    <div class="pagos-section-title">
+      <span>Otros pagos</span>
+      <button class="btn-add-mini" onclick="abrirModalOtroPago()">+ Añadir pago</button>
+    </div>
+    <div id="listaOtrosPagos"></div>
+
+  </div>
+</div>
 
 <!-- Modal: nueva actividad -->
 <div class="modal-overlay hidden" id="modalNuevo">
@@ -494,6 +629,104 @@
   </div>
 </div>
 
+<!-- Modal: nueva actividad extraescolar (cuota mensual) -->
+<div class="modal-overlay hidden" id="modalActividadPago">
+  <div class="modal">
+    <h2>Actividad extraescolar</h2>
+    <p class="sub">Registra la actividad y su cuota mensual. Luego podrás marcar mes a mes si está pagada.</p>
+
+    <div class="field">
+      <label>Niño/a</label>
+      <div class="member-pick" id="memberPickPago">
+        <button type="button" class="sel-Hilario" onclick="seleccionarMiembroPago('Hilario')">Hilario</button>
+        <button type="button" class="sel-Helena" onclick="seleccionarMiembroPago('Helena')">Helena</button>
+        <button type="button" class="sel-Ana" onclick="seleccionarMiembroPago('Ana')">Ana</button>
+        <button type="button" class="sel-Marcos" onclick="seleccionarMiembroPago('Marcos')">Marcos</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Nombre de la actividad</label>
+      <input type="text" id="apNombre" placeholder="Ej: Fútbol, Inglés, Conservatorio...">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Cuota mensual (€)</label>
+        <input type="text" id="apCuota" inputmode="decimal" placeholder="Ej: 25">
+      </div>
+      <div class="field">
+        <label>Día de pago (opcional)</label>
+        <input type="text" id="apDiaPago" placeholder="Ej: día 5 del mes">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Mes inicio</label>
+        <input type="month" id="apMesInicio" value="2026-09">
+      </div>
+      <div class="field">
+        <label>Mes fin</label>
+        <input type="month" id="apMesFin" value="2027-06">
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsgAP"></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="cerrarModalActividadPago()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarActividadPago()">Guardar actividad</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: otro pago puntual -->
+<div class="modal-overlay hidden" id="modalOtroPago">
+  <div class="modal">
+    <h2>Otro pago</h2>
+    <p class="sub">Para gastos puntuales: material, excursión, uniforme, examen...</p>
+
+    <div class="field">
+      <label>Relacionado con</label>
+      <div class="member-pick" id="memberPickOtroPago">
+        <button type="button" class="sel-Hilario" onclick="seleccionarMiembroOtroPago('Hilario')">Hilario</button>
+        <button type="button" class="sel-Helena" onclick="seleccionarMiembroOtroPago('Helena')">Helena</button>
+        <button type="button" class="sel-Ana" onclick="seleccionarMiembroOtroPago('Ana')">Ana</button>
+        <button type="button" class="sel-Marcos" onclick="seleccionarMiembroOtroPago('Marcos')">Marcos</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Concepto</label>
+      <input type="text" id="opConcepto" placeholder="Ej: Material de conservatorio, viaje de fin de curso...">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Importe (€)</label>
+        <input type="text" id="opImporte" inputmode="decimal" placeholder="Ej: 40">
+      </div>
+      <div class="field">
+        <label>Fecha</label>
+        <input type="date" id="opFecha">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Notas (opcional)</label>
+      <textarea id="opNotas" placeholder="Detalles adicionales..."></textarea>
+    </div>
+
+    <div class="error-msg" id="errorMsgOP"></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="cerrarModalOtroPago()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarOtroPago()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================================================
    CONFIGURACIÓN DE FIREBASE
@@ -514,6 +747,8 @@ const firebaseConfig = {
 
 let db = null;
 let eventosRef = null; // referencia al nodo /eventos en Realtime Database
+let actividadesPagoRef = null; // referencia al nodo /actividadesExtraescolares
+let otrosPagosRef = null;      // referencia al nodo /otrosPagos
 
 /* =========================================================
    CALENDARIO ESCOLAR OFICIAL - EXTREMADURA CURSO 2026/2027
@@ -573,6 +808,14 @@ let miembroSeleccionado = "Hilario";
 let diasSeleccionados = new Set();
 let eventoDetalleActualId = null;
 
+let seccionActual = "calendario"; // 'calendario' | 'pagos'
+let actividadesPago = [];
+let otrosPagos = [];
+let miembroSeleccionadoPago = "Ana";
+let miembroSeleccionadoOtroPago = "Ana";
+
+const MESES_NOMBRE = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
 /* =========================================================
    UTILIDADES DE FECHA
    ========================================================= */
@@ -612,13 +855,18 @@ window.addEventListener("load", function(){
     firebase.initializeApp(firebaseConfig);
     db = firebase.database();
     eventosRef = db.ref("eventos");
+    actividadesPagoRef = db.ref("actividadesExtraescolares");
+    otrosPagosRef = db.ref("otrosPagos");
     escucharEventos();
+    escucharPagos();
   }catch(e){
     console.error("Error iniciando Firebase:", e);
     mostrarConexion("⚠️ Configura tu Firebase en el código (firebaseConfig)");
   }
   seleccionarMiembro("Hilario");
   seleccionarTipo("unico");
+  seleccionarMiembroPago("Ana");
+  seleccionarMiembroOtroPago("Ana");
   renderTodo();
 });
 
@@ -633,6 +881,23 @@ function escucharEventos(){
   }, function(err){
     console.error(err);
     mostrarConexion("⚠️ Sin conexión a la base de datos");
+  });
+}
+
+function escucharPagos(){
+  actividadesPagoRef.on("value", function(snapshot){
+    actividadesPago = [];
+    snapshot.forEach(function(child){
+      actividadesPago.push(Object.assign({ id: child.key }, child.val()));
+    });
+    if (seccionActual === "pagos") renderPagos();
+  });
+  otrosPagosRef.on("value", function(snapshot){
+    otrosPagos = [];
+    snapshot.forEach(function(child){
+      otrosPagos.push(Object.assign({ id: child.key }, child.val()));
+    });
+    if (seccionActual === "pagos") renderPagos();
   });
 }
 
@@ -652,6 +917,16 @@ function cambiarVista(v){
     b.classList.toggle("active", b.dataset.tab === v);
   });
   renderCalendario();
+}
+
+function cambiarSeccion(s){
+  seccionActual = s;
+  document.getElementById("mainTabCalendario").classList.toggle("active", s === "calendario");
+  document.getElementById("mainTabPagos").classList.toggle("active", s === "pagos");
+  document.getElementById("seccionCalendario").style.display = s === "calendario" ? "block" : "none";
+  document.getElementById("seccionPagos").style.display = s === "pagos" ? "block" : "none";
+  document.getElementById("fabCalendario").style.display = s === "calendario" ? "block" : "none";
+  if (s === "pagos") renderPagos();
 }
 
 function cambiarSemana(dir){
@@ -792,6 +1067,256 @@ function escapeHtml(str){
   const d = document.createElement("div");
   d.textContent = str;
   return d.innerHTML;
+}
+
+/* =========================================================
+   PAGOS: RENDER
+   ========================================================= */
+function mesesEntre(mesInicio, mesFin){
+  // mesInicio/mesFin en formato "YYYY-MM". Devuelve array de "YYYY-MM" inclusive.
+  const out = [];
+  let [y,m] = mesInicio.split("-").map(Number);
+  const [yf,mf] = mesFin.split("-").map(Number);
+  let guard = 0;
+  while ((y < yf || (y === yf && m <= mf)) && guard < 60){
+    out.push(`${y}-${String(m).padStart(2,"0")}`);
+    m++;
+    if (m > 12){ m = 1; y++; }
+    guard++;
+  }
+  return out;
+}
+function etiquetaMes(mesKey){
+  const [y,m] = mesKey.split("-").map(Number);
+  return MESES_NOMBRE[m-1] + " " + String(y).slice(2);
+}
+
+function renderPagos(){
+  renderActividadesPago();
+  renderOtrosPagos();
+}
+
+function renderActividadesPago(){
+  const cont = document.getElementById("listaActividadesPago");
+  cont.innerHTML = "";
+  if (actividadesPago.length === 0){
+    cont.innerHTML = `<div class="empty-note">Todavía no hay actividades extraescolares registradas.</div>`;
+    return;
+  }
+  actividadesPago.forEach(act=>{
+    const meses = mesesEntre(act.mesInicio, act.mesFin);
+    const pagos = act.pagos || {};
+    const pendientes = meses.filter(mk => !pagos[mk]).length;
+
+    const card = document.createElement("div");
+    card.className = "pago-card";
+
+    const top = document.createElement("div");
+    top.className = "pago-card-top";
+    top.innerHTML = `
+      <div class="pago-card-info">
+        <div class="quien"><span class="detalle-color" style="background:${COLORES[act.nino]}"></span>${act.nino}</div>
+        <b>${escapeHtml(act.nombre)}</b>
+        <div class="cuota">${act.cuota ? act.cuota+" €/mes" : ""}${act.diaPago ? " · "+escapeHtml(act.diaPago) : ""}</div>
+      </div>
+      <div class="pendientes-tag ${pendientes===0 ? "al-dia":""}">${pendientes===0 ? "Al día" : pendientes+" pendiente"+(pendientes>1?"s":"")}</div>
+    `;
+    card.appendChild(top);
+
+    const grid = document.createElement("div");
+    grid.className = "meses-grid";
+    meses.forEach(mk=>{
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mes-badge" + (pagos[mk] ? " pagado" : "");
+      b.textContent = etiquetaMes(mk);
+      b.onclick = () => toggleMesPagado(act.id, mk, !pagos[mk]);
+      grid.appendChild(b);
+    });
+    card.appendChild(grid);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "borrar-link";
+    del.textContent = "Eliminar esta actividad";
+    del.onclick = () => borrarActividadPago(act.id);
+    card.appendChild(del);
+
+    cont.appendChild(card);
+  });
+}
+
+function renderOtrosPagos(){
+  const cont = document.getElementById("listaOtrosPagos");
+  cont.innerHTML = "";
+  if (otrosPagos.length === 0){
+    cont.innerHTML = `<div class="empty-note">No hay otros pagos registrados.</div>`;
+    return;
+  }
+  const ordenados = otrosPagos.slice().sort((a,b)=> (a.fecha||"").localeCompare(b.fecha||""));
+  ordenados.forEach(p=>{
+    const card = document.createElement("div");
+    card.className = "pago-card";
+    const fechaFmt = p.fecha ? new Date(p.fecha+"T00:00:00").toLocaleDateString("es-ES") : "";
+    card.innerHTML = `
+      <div class="otro-pago-row">
+        <span class="quien-dot" style="background:${COLORES[p.nino]}"></span>
+        <div>
+          <div class="concepto">${escapeHtml(p.concepto)}</div>
+          <div class="meta">${p.nino} ${fechaFmt ? "· "+fechaFmt : ""}</div>
+        </div>
+        <div class="importe">${p.importe ? p.importe+" €" : ""}</div>
+      </div>
+    `;
+    const acciones = document.createElement("div");
+    acciones.style.display = "flex";
+    acciones.style.gap = "8px";
+    acciones.style.marginTop = "10px";
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "pago-toggle" + (p.pagado ? " pagado" : "");
+    toggle.textContent = p.pagado ? "✓ Pagado" : "Pendiente de pago";
+    toggle.onclick = () => toggleOtroPagoPagado(p.id, !p.pagado);
+    acciones.appendChild(toggle);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "borrar-link";
+    del.style.marginTop = "0";
+    del.textContent = "Eliminar";
+    del.onclick = () => borrarOtroPago(p.id);
+    acciones.appendChild(del);
+
+    card.appendChild(acciones);
+    if (p.notas){
+      const notas = document.createElement("div");
+      notas.className = "meta";
+      notas.style.marginTop = "8px";
+      notas.textContent = p.notas;
+      card.appendChild(notas);
+    }
+    cont.appendChild(card);
+  });
+}
+
+/* =========================================================
+   PAGOS: ACTIVIDADES EXTRAESCOLARES (CRUD)
+   ========================================================= */
+function abrirModalActividadPago(){
+  document.getElementById("apNombre").value = "";
+  document.getElementById("apCuota").value = "";
+  document.getElementById("apDiaPago").value = "";
+  document.getElementById("apMesInicio").value = "2026-09";
+  document.getElementById("apMesFin").value = "2027-06";
+  document.getElementById("errorMsgAP").style.display = "none";
+  seleccionarMiembroPago("Ana");
+  document.getElementById("modalActividadPago").classList.remove("hidden");
+}
+function cerrarModalActividadPago(){
+  document.getElementById("modalActividadPago").classList.add("hidden");
+}
+function seleccionarMiembroPago(m){
+  miembroSeleccionadoPago = m;
+  document.querySelectorAll("#memberPickPago button").forEach(b=>{
+    b.classList.toggle("active", b.classList.contains("sel-"+m));
+  });
+}
+function guardarActividadPago(){
+  const nombre = document.getElementById("apNombre").value.trim();
+  const cuota = document.getElementById("apCuota").value.trim();
+  const diaPago = document.getElementById("apDiaPago").value.trim();
+  const mesInicio = document.getElementById("apMesInicio").value;
+  const mesFin = document.getElementById("apMesFin").value;
+  const err = document.getElementById("errorMsgAP");
+
+  if (!nombre) { err.textContent = "Ponle un nombre a la actividad."; err.style.display="block"; return; }
+  if (!mesInicio || !mesFin) { err.textContent = "Indica mes de inicio y mes de fin."; err.style.display="block"; return; }
+  if (mesFin < mesInicio) { err.textContent = "El mes de fin no puede ser anterior al de inicio."; err.style.display="block"; return; }
+
+  err.style.display = "none";
+
+  const datos = {
+    nino: miembroSeleccionadoPago,
+    nombre: nombre,
+    cuota: cuota ? Number(cuota.replace(",",".")) : null,
+    diaPago: diaPago,
+    mesInicio: mesInicio,
+    mesFin: mesFin,
+    pagos: {}
+  };
+
+  actividadesPagoRef.push(datos).then(()=>{
+    cerrarModalActividadPago();
+  }).catch(e=>{
+    console.error(e);
+    err.textContent = "No se pudo guardar. Revisa la conexión con la base de datos.";
+    err.style.display = "block";
+  });
+}
+function toggleMesPagado(actId, mesKey, nuevoValor){
+  actividadesPagoRef.child(actId).child("pagos").child(mesKey).set(nuevoValor);
+}
+function borrarActividadPago(actId){
+  if (!confirm("¿Eliminar esta actividad y todo su historial de pagos?")) return;
+  actividadesPagoRef.child(actId).remove();
+}
+
+/* =========================================================
+   PAGOS: OTROS PAGOS PUNTUALES (CRUD)
+   ========================================================= */
+function abrirModalOtroPago(){
+  document.getElementById("opConcepto").value = "";
+  document.getElementById("opImporte").value = "";
+  document.getElementById("opFecha").value = fmtISO(new Date());
+  document.getElementById("opNotas").value = "";
+  document.getElementById("errorMsgOP").style.display = "none";
+  seleccionarMiembroOtroPago("Ana");
+  document.getElementById("modalOtroPago").classList.remove("hidden");
+}
+function cerrarModalOtroPago(){
+  document.getElementById("modalOtroPago").classList.add("hidden");
+}
+function seleccionarMiembroOtroPago(m){
+  miembroSeleccionadoOtroPago = m;
+  document.querySelectorAll("#memberPickOtroPago button").forEach(b=>{
+    b.classList.toggle("active", b.classList.contains("sel-"+m));
+  });
+}
+function guardarOtroPago(){
+  const concepto = document.getElementById("opConcepto").value.trim();
+  const importe = document.getElementById("opImporte").value.trim();
+  const fecha = document.getElementById("opFecha").value;
+  const notas = document.getElementById("opNotas").value.trim();
+  const err = document.getElementById("errorMsgOP");
+
+  if (!concepto){ err.textContent = "Indica el concepto del pago."; err.style.display="block"; return; }
+
+  err.style.display = "none";
+
+  const datos = {
+    nino: miembroSeleccionadoOtroPago,
+    concepto: concepto,
+    importe: importe ? Number(importe.replace(",",".")) : null,
+    fecha: fecha || null,
+    notas: notas,
+    pagado: false
+  };
+
+  otrosPagosRef.push(datos).then(()=>{
+    cerrarModalOtroPago();
+  }).catch(e=>{
+    console.error(e);
+    err.textContent = "No se pudo guardar. Revisa la conexión con la base de datos.";
+    err.style.display = "block";
+  });
+}
+function toggleOtroPagoPagado(id, nuevoValor){
+  otrosPagosRef.child(id).child("pagado").set(nuevoValor);
+}
+function borrarOtroPago(id){
+  if (!confirm("¿Eliminar este pago?")) return;
+  otrosPagosRef.child(id).remove();
 }
 
 /* =========================================================
@@ -950,6 +1475,15 @@ window.toggleDia = toggleDia;
 window.guardarActividad = guardarActividad;
 window.cerrarModalDetalle = cerrarModalDetalle;
 window.borrarActividadActual = borrarActividadActual;
+window.cambiarSeccion = cambiarSeccion;
+window.abrirModalActividadPago = abrirModalActividadPago;
+window.cerrarModalActividadPago = cerrarModalActividadPago;
+window.seleccionarMiembroPago = seleccionarMiembroPago;
+window.guardarActividadPago = guardarActividadPago;
+window.abrirModalOtroPago = abrirModalOtroPago;
+window.cerrarModalOtroPago = cerrarModalOtroPago;
+window.seleccionarMiembroOtroPago = seleccionarMiembroOtroPago;
+window.guardarOtroPago = guardarOtroPago;
 </script>
 </body>
 </html>
