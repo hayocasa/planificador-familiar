@@ -159,13 +159,39 @@
     padding:0 20px 100px;
     overflow-x:auto;
   }
-  .calendar{
-    display:grid;
-    grid-template-columns:56px repeat(7, minmax(130px,1fr));
+  .calendar-card{
     background:var(--card);
     border-radius:12px;
     box-shadow:var(--shadow);
     overflow:hidden;
+    min-width:1000px;
+  }
+  .dias-completos{
+    display:grid;
+    grid-template-columns:56px repeat(7, minmax(130px,1fr));
+    grid-auto-rows:24px;
+    row-gap:3px;
+    padding:6px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .dias-completos:empty{ display:none; }
+  .evento-todo-dia{
+    grid-row:auto;
+    margin:0 3px;
+    border-radius:6px;
+    padding:2px 8px;
+    color:#fff;
+    font-size:.72rem;
+    font-weight:700;
+    line-height:20px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    cursor:pointer;
+  }
+  .calendar{
+    display:grid;
+    grid-template-columns:56px repeat(7, minmax(130px,1fr));
     min-width:1000px;
   }
   .head-cell{
@@ -465,7 +491,7 @@
   .empty-note{ color:var(--muted); font-size:.85rem; padding:6px 2px; }
 
   @media (max-width:720px){
-    .calendar{ grid-template-columns:40px repeat(7, minmax(105px,1fr)); }
+    .calendar, .dias-completos{ grid-template-columns:40px repeat(7, minmax(105px,1fr)); }
     header.top h1{ font-size:1.2rem; }
   }
 </style>
@@ -524,7 +550,10 @@
 </div>
 
 <div class="calendar-wrap">
-  <div class="calendar" id="calendar"></div>
+  <div class="calendar-card">
+    <div class="dias-completos" id="diasCompletos"></div>
+    <div class="calendar" id="calendar"></div>
+  </div>
 </div>
 
 <button class="fab" id="fabCalendario" onclick="abrirModalNuevo()">+ Añadir actividad</button>
@@ -575,6 +604,7 @@
       <label>Repetición</label>
       <div class="type-toggle">
         <button type="button" id="btnUnica" class="active" onclick="seleccionarTipo('unico')">Un solo día</button>
+        <button type="button" id="btnMultidia" onclick="seleccionarTipo('multidia')">Todo el día</button>
         <button type="button" id="btnRepetida" onclick="seleccionarTipo('recurrente')">Se repite (curso)</button>
       </div>
     </div>
@@ -583,6 +613,20 @@
       <div class="field">
         <label>Fecha</label>
         <input type="date" id="fFecha">
+      </div>
+    </div>
+
+    <div id="bloqueMultidia" style="display:none">
+      <p class="sub" style="margin:-4px 0 12px">Para todo el día, o para varios días completos seguidos (una acampada, un viaje...).</p>
+      <div class="row2">
+        <div class="field">
+          <label>Fecha inicio</label>
+          <input type="date" id="fMultidiaInicio">
+        </div>
+        <div class="field">
+          <label>Fecha fin</label>
+          <input type="date" id="fMultidiaFin">
+        </div>
       </div>
     </div>
 
@@ -611,7 +655,7 @@
       </div>
     </div>
 
-    <div class="row2">
+    <div class="row2" id="bloqueHoras">
       <div class="field">
         <label>Hora inicio</label>
         <input type="time" id="fHoraInicio" value="17:00">
@@ -1032,6 +1076,7 @@ function renderTodo(){
   renderCabeceraSemana();
   if (modoVista === "dia") renderDiaPicker();
   renderCalendario();
+  renderDiasCompletos();
 }
 
 function renderDiaPicker(){
@@ -1149,6 +1194,49 @@ function renderCalendario(){
 
     cal.appendChild(col);
   });
+}
+
+/* Fila superior de eventos "todo el día" / varios días completos (acampadas, viajes...) */
+function renderDiasCompletos(){
+  const cont = document.getElementById("diasCompletos");
+  cont.innerHTML = "";
+
+  const dias = modoVista === "dia" ? [new Date(diaSeleccionado)] : [];
+  if (modoVista === "semana"){
+    for(let i=0;i<7;i++) dias.push(addDias(inicioSemana, i));
+  }
+  cont.style.gridTemplateColumns = modoVista === "dia"
+    ? "56px minmax(280px,1fr)"
+    : "56px repeat(7, minmax(130px,1fr))";
+
+  const rangoInicio = fmtISO(dias[0]);
+  const rangoFin = fmtISO(dias[dias.length-1]);
+  const miembrosVisibles = vistaActual === "conjunta" ? MIEMBROS : [vistaActual];
+
+  const eventosMultidia = eventos.filter(ev=>
+    ev.tipo === "multidia" &&
+    miembrosVisibles.includes(ev.miembro) &&
+    ev.fechaInicio <= rangoFin && ev.fechaFin >= rangoInicio
+  );
+
+  eventosMultidia.forEach(ev=>{
+    const idxInicio = Math.max(0, diasEntreFechas(rangoInicio, ev.fechaInicio));
+    const idxFin = Math.min(dias.length-1, diasEntreFechas(rangoInicio, ev.fechaFin));
+
+    const barra = document.createElement("div");
+    barra.className = "evento-todo-dia";
+    barra.style.gridColumn = `${idxInicio+2} / ${idxFin+3}`;
+    barra.style.background = COLORES[ev.miembro] || "#64748b";
+    barra.textContent = (vistaActual === "conjunta" ? `${ev.miembro} · ` : "") + ev.titulo;
+    barra.onclick = () => abrirModalDetalle(ev);
+    cont.appendChild(barra);
+  });
+}
+
+function diasEntreFechas(isoA, isoB){
+  const a = new Date(isoA+"T00:00:00");
+  const b = new Date(isoB+"T00:00:00");
+  return Math.round((b - a) / 86400000);
 }
 
 function crearBloqueEvento(ev){
@@ -1516,6 +1604,8 @@ function borrarOtroPago(id){
 function abrirModalNuevo(){
   document.getElementById("fTitulo").value = "";
   document.getElementById("fFecha").value = fmtISO(new Date());
+  document.getElementById("fMultidiaInicio").value = fmtISO(new Date());
+  document.getElementById("fMultidiaFin").value = fmtISO(new Date());
   document.getElementById("fFechaInicio").value = fmtISO(inicioSemana);
   document.getElementById("fFechaFin").value = CURSO_FIN;
   document.getElementById("fHoraInicio").value = "17:00";
@@ -1540,9 +1630,12 @@ function seleccionarMiembro(m){
 function seleccionarTipo(t){
   tipoActual = t;
   document.getElementById("btnUnica").classList.toggle("active", t==="unico");
+  document.getElementById("btnMultidia").classList.toggle("active", t==="multidia");
   document.getElementById("btnRepetida").classList.toggle("active", t==="recurrente");
   document.getElementById("bloqueUnico").style.display = t==="unico" ? "block":"none";
+  document.getElementById("bloqueMultidia").style.display = t==="multidia" ? "block":"none";
   document.getElementById("bloqueRecurrente").style.display = t==="recurrente" ? "block":"none";
+  document.getElementById("bloqueHoras").style.display = t==="multidia" ? "none":"flex";
 }
 function toggleDia(n){
   const btn = document.querySelector(`#dowPick button[data-d="${n}"]`);
@@ -1557,29 +1650,40 @@ function toggleDia(n){
 
 function guardarActividad(){
   const titulo = document.getElementById("fTitulo").value.trim();
-  const horaInicio = document.getElementById("fHoraInicio").value;
-  const horaFin = document.getElementById("fHoraFin").value;
   const notas = document.getElementById("fNotas").value.trim();
   const err = document.getElementById("errorMsg");
 
   if (!titulo){ return mostrarError("Ponle un título a la actividad."); }
-  if (!horaInicio || !horaFin || horaFin <= horaInicio){ return mostrarError("Revisa las horas: la hora de fin debe ser posterior a la de inicio."); }
 
   let datos = {
     miembro: miembroSeleccionado,
     titulo: titulo,
     notas: notas,
-    horaInicio: horaInicio,
-    horaFin: horaFin,
     tipo: tipoActual,
     creado: firebase.database.ServerValue.TIMESTAMP
   };
 
   if (tipoActual === "unico"){
+    const horaInicio = document.getElementById("fHoraInicio").value;
+    const horaFin = document.getElementById("fHoraFin").value;
+    if (!horaInicio || !horaFin || horaFin <= horaInicio){ return mostrarError("Revisa las horas: la hora de fin debe ser posterior a la de inicio."); }
     const fecha = document.getElementById("fFecha").value;
     if (!fecha) return mostrarError("Elige una fecha.");
     datos.fecha = fecha;
+    datos.horaInicio = horaInicio;
+    datos.horaFin = horaFin;
+  } else if (tipoActual === "multidia"){
+    const fi = document.getElementById("fMultidiaInicio").value;
+    const ff = document.getElementById("fMultidiaFin").value;
+    if (!fi || !ff) return mostrarError("Indica fecha de inicio y de fin.");
+    if (ff < fi) return mostrarError("La fecha fin no puede ser anterior a la de inicio.");
+    datos.fechaInicio = fi;
+    datos.fechaFin = ff;
+    datos.fecha = fi; // para poder ordenar por 'fecha'
   } else {
+    const horaInicio = document.getElementById("fHoraInicio").value;
+    const horaFin = document.getElementById("fHoraFin").value;
+    if (!horaInicio || !horaFin || horaFin <= horaInicio){ return mostrarError("Revisa las horas: la hora de fin debe ser posterior a la de inicio."); }
     const fi = document.getElementById("fFechaInicio").value;
     const ff = document.getElementById("fFechaFin").value;
     if (!fi || !ff) return mostrarError("Indica fecha de inicio y de fin.");
@@ -1589,6 +1693,8 @@ function guardarActividad(){
     datos.fechaFin = ff;
     datos.fecha = fi; // para poder ordenar por 'fecha' en Firestore
     datos.diasSemana = Array.from(diasSeleccionados).sort();
+    datos.horaInicio = horaInicio;
+    datos.horaFin = horaFin;
   }
 
   err.style.display = "none";
@@ -1621,6 +1727,12 @@ function abrirModalDetalle(ev){
   if (ev.tipo === "unico"){
     const d = new Date(ev.fecha+"T00:00:00");
     cuando = `${fmtLargo(d)} · ${ev.horaInicio}–${ev.horaFin}`;
+  } else if (ev.tipo === "multidia"){
+    const di = new Date(ev.fechaInicio+"T00:00:00");
+    const dfEnd = new Date(ev.fechaFin+"T00:00:00");
+    cuando = ev.fechaInicio === ev.fechaFin
+      ? `${fmtLargo(di)} · Todo el día`
+      : `Del ${di.toLocaleDateString("es-ES")} al ${dfEnd.toLocaleDateString("es-ES")} · Todo el día`;
   } else {
     const nombres = ev.diasSemana.map(n => DOW_NOMBRES[n-1]).join(", ");
     const di = new Date(ev.fechaInicio+"T00:00:00");
